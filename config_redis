@@ -1,0 +1,33 @@
+#!/bin/bash
+
+if [ $# -ne 2 ];then
+    echo "Usage: $0 install_path"
+    exit 1
+fi
+
+REDISPATH=$1
+port=$2
+
+echo $REDISPATH
+
+mkdir -p $REDISPATH/etc
+mkdir -p $REDISPATH/lib
+mkdir -p $REDISPATH/log
+mkdir -p $REDISPATH/db
+
+if [ ! -f $REDISPATH/etc/redis.conf ];then
+
+read -r SED_EXPR <<-EOF
+s#^logfile .+\$#logfile ${REDISPATH}/log/redis.log#; \
+s#^dir .+\$#dir ${REDISPATH}/db#; \
+s#^pidfile .+\$#pidfile ${REDISPATH}/redis.pid#; \
+s#^daemonize no\$#daemonize yes#; \
+s#^port .+\$#port $port#; \
+s@^# maxclients .+\$@maxclients 10000@;
+EOF
+
+    sed -r "$SED_EXPR" redis/redis.conf >> ${REDISPATH}/etc/redis.conf
+    echo "rename-command CONFIG \"\"" >> ${REDISPATH}/etc/redis.conf
+fi
+
+chown -R redis:redis $REDISPATH

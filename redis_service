@@ -1,0 +1,86 @@
+#!/bin/bash
+
+if [ $# -ne 3 ];then
+    echo "Usage: $0 install_path user"
+    exit 1
+fi
+
+install_path=$1
+user=$2
+port=$3
+
+config_service_sysvinit()
+{
+    echo "config service with sysvinit"
+    TMPFILE=redis.tmp
+
+cat > $TMPFILE <<EOT
+#!/bin/sh
+#Configurations injected by install_server below....
+
+USER=$user
+EXEC=$install_path/bin/redis-server
+CLIEXEC=$install_path/bin/redis-cli
+PIDFILE=$install_path/redis.pid
+CONF=$install_path/etc/redis.conf
+REDISPORT=$port
+###############
+# SysV Init Information
+# chkconfig: - 58 74
+# description: redis is the redis daemon.
+### BEGIN INIT INFO
+# Provides: redis
+# Required-Start: \$network \$local_fs \$remote_fs
+# Required-Stop: \$network \$local_fs \$remote_fs
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Should-Start: \$syslog \$named
+# Should-Stop: \$syslog \$named
+# Short-Description: start and stop redis
+# Description: Redis daemon
+### END INIT INFO
+EOT
+    cat redis/utils/redis_init_script.tpl >> $TMPFILE
+    sed "s/\$EXEC \$CONF/su - \$USER -c \"\$EXEC \$CONF\"/g" $TMPFILE > /etc/init.d/redis
+    chmod u+x /etc/init.d/redis
+    rm -f $TMPFILE
+}
+
+config_service_systemd()
+{
+    echo "config service with systemd"
+
+    cd ~/
+echo "[Unit]
+Description=Redis server
+BindTo=network.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+User=$user
+Group=$user
+Type=forking
+Environment=PATH=$install_path/bin:/usr/bin:/bin
+ExecStart=$install_path/bin/redis-server $install_path/etc/redis.conf
+ExecStop=ExecStop=$install_path/bin/redis-cli -p $port shutdown
+PrivateTmp=true
+Restart=on-failure
+" > /etc/systemd/system/redis.service
+}
+
+config_service()
+{
+    echo "config service"
+    tmp=`systemctl`
+    if [ $? -ne 0 ];
+    then
+        config_service_sysvinit
+        return
+    else
+        config_service_systemd
+    fi
+}
+
+config_service

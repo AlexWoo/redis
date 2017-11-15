@@ -1,0 +1,58 @@
+#!/usr/bin/python
+
+import os
+
+user = "redis"
+install_path = "/home/" + user + "/redis"
+port = "6370"
+
+packages = {
+    "redis": {
+        "url":  "http://download.redis.io/releases/redis-3.2.11.tar.gz",
+        "install": "make && make PREFIX=" + install_path + " install",
+        "config": "./config_redis " + install_path + " " + port,
+        "service": "./redis_service " + install_path + " " + user + " " + port
+    }
+}
+
+
+def useradd(user):
+    if os.system("grep " + user + " /etc/passwd") != 0:
+        print("useradd -r -U -m " + user)
+        os.system("useradd -r -U -m " + user)
+
+
+def download(name, url):
+    pack = os.path.basename(url)
+    pdir = pack.split(".tar.gz")[0]
+
+    if not os.path.isdir(name):
+        if not os.path.isfile(pack):
+            os.system("wget " + url)
+        os.system("tar xzf " + pack)
+        os.rename(pdir, name)
+
+
+def install(name):
+    install = packages[name]["install"]
+    config = packages[name]["config"]
+    service = packages[name]["service"]
+
+    os.chdir(name)
+    print(install)
+    os.system(install)
+    os.chdir("../")
+
+    print(config)
+    os.system(config)
+
+    print(service)
+    os.system(service)
+
+
+if __name__ == '__main__':
+    for name, package in packages.items():
+        download(name, package["url"])
+
+    useradd("redis")
+    install("redis")
