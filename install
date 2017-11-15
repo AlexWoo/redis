@@ -17,7 +17,7 @@ packages = {
 
 
 def useradd(user):
-    if os.system("grep " + user + " /etc/passwd") != 0:
+    if os.system("grep ^" + user + ": /etc/passwd") != 0:
         print("useradd -r -U -m " + user)
         os.system("useradd -r -U -m " + user)
 
